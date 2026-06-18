@@ -901,7 +901,7 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
 
     <script>
-       // =========================================================================
+     // =========================================================================
 // BRIDGE POLYFILL: MENGUBAH google.script.run MENJADI HTTP FETCH (UNTUK VERCEL)
 // =========================================================================
 const GAS_API_URL = "https://script.google.com/macros/s/AKfycbx81C-fwzXvBldoMzXNUqPT0qdb8e48KXOm7vMdoNw81GmoCfZniyjZbSkA3oSWkmZ1mg/exec";
@@ -910,32 +910,20 @@ window.google = {
   script: {
     run: new Proxy({ successHandler: null, failureHandler: null }, {
       get: function(target, prop) {
-        // 1. Menangkap settingan handler bawaan GAS
         if (prop === 'withSuccessHandler') {
-          return function(callback) {
-            target.successHandler = callback;
-            return new Proxy(target, this);
-          };
+          return function(callback) { target.successHandler = callback; return new Proxy(target, this); };
         }
         if (prop === 'withFailureHandler') {
-          return function(callback) {
-            target.failureHandler = callback;
-            return new Proxy(target, this);
-          };
+          return function(callback) { target.failureHandler = callback; return new Proxy(target, this); };
         }
         
-        // 2. Menangkap nama fungsi (ex: getAllData, saveData) dan mengubahnya jadi API call
         return function(...args) {
           const success = target.successHandler;
           const failure = target.failureHandler;
-          
-          // Reset handler untuk antrean pemanggilan berikutnya
           target.successHandler = null;
           target.failureHandler = null;
 
-          // Deteksi otomatis tipe request (Simpan data = POST, Ambil data = GET)
           const isPostAction = prop.toLowerCase().includes('save') || prop.toLowerCase().includes('submit');
-          
           let url = `${GAS_API_URL}?action=${prop}`;
           let options = { method: 'GET', redirect: 'follow' };
 
@@ -943,11 +931,10 @@ window.google = {
             options = {
               method: 'POST',
               redirect: 'follow',
-              headers: { 'Content-Type': 'text/plain' }, // Menggunakan text/plain agar terhindar dari preflight CORS di Apps Script
+              headers: { 'Content-Type': 'text/plain' },
               body: JSON.stringify(args[0] || {})
             };
           } else {
-            // Jika request GET memiliki parameter khusus (seperti ID Transaksi)
             if (prop === 'getTransactionDetails' && args[0]) {
               url += `&id_transaksi=${encodeURIComponent(args[0])}`;
             } else if (args.length > 0) {
@@ -955,22 +942,14 @@ window.google = {
             }
           }
 
-          // Eksekusi penembakan API ke Google Sheets
           fetch(url, options)
-            .then(res => res.text()) // Ambil teks mentah dahulu
+            .then(res => res.text())
             .then(textData => {
               try {
-                // Konversi teks ke object javascript
                 let parsedData = JSON.parse(textData);
-                
-                // Jika data di dalamnya berupa string JSON lagi (efek double stringify), kita parse sekali lagi
-                if (typeof parsedData === 'string') {
-                  parsedData = JSON.parse(parsedData);
-                }
-                
+                if (typeof parsedData === 'string') parsedData = JSON.parse(parsedData);
                 if (success) success(parsedData);
               } catch (e) {
-                // Jika data yang kembali sudah berupa object langsung
                 if (success) success(textData);
               }
             })
@@ -984,7 +963,6 @@ window.google = {
   }
 };
 // =========================================================================
-
     </script>
 </body>
 </html>
